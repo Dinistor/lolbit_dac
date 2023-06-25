@@ -3,7 +3,7 @@
 //КАЛИБРОВОЧНОЕ МЕНЮ? ВВОД КАЛИБРОВОЧНЫХ ЗНАЧЕНИЙ?
 //хранение калибровочных значений в EEPROM. тут надо аккуратно, дабы не получилось бесконечного цикла записи.
 //для проверки, вместе с записью использовать мигание светодиодом на 13й ноге
-//энергосбережение - отключение подсветки через noBacklight() через 5 сек после ввода
+//DONE энергосбережение - отключение подсветки через noBacklight() через 5 сек после ввода
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
 
@@ -36,10 +36,10 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 uint32_t tmr;
 //калибровочные переменные
-uint16_t PWM_max = 3629;
-uint16_t PWM_min = 188;
-float U_max = 8.8985;
-float U_min = 0.498;
+uint16_t PWM_max = 64718;
+uint16_t PWM_min = 1099;
+float U_max = 9.901;
+float U_min = 0.2003;
 //рабочие переменные
 uint16_t PWM = 0;
 float U_set = 0;
@@ -212,7 +212,7 @@ String str = "";
       amogus = atof(str1);
       
       str = "";
-      if((amogus>9.1)or(amogus<0.1))
+      if((amogus>9.9999)or(amogus<0.01))
       {
       lcd.clear();
       lcd.setCursor(0,0);
