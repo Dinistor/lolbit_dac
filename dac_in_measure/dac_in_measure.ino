@@ -6,8 +6,8 @@
 //DONE энергосбережение - отключение подсветки через noBacklight() через 5 сек после ввода
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
-#include <SoftwareSerial.h>
 #include "ADS1X15.h"
+#include <SoftwareSerial.h>
 
 SoftwareSerial mySerial(10, 11); // RX, TX
 
@@ -41,13 +41,18 @@ ADS1115 ads(0x48);
 
 uint32_t tmr;
 //калибровочные переменные
-uint16_t PWM_max = 53443;
-uint16_t PWM_min = 5612;
-float U_max = 4.493;
-float U_min = 0.5007;
+uint16_t PWM_max = 53526;
+uint16_t PWM_min = 5603;
+float U_max = 4.4822;
+float U_min = 0.4975;
 //рабочие переменные
 uint16_t PWM = 0;
 float U_set = 0;
+
+float voltage = 0;
+float percent = 0;
+
+int x = 0;
 
 struct Str
 {
@@ -57,17 +62,61 @@ Str buf;//структура для отправки
 
 void setup() {
   ads.setGain(0);
-  ads.setDataRate(1);
-  Serial.begin(9600);
+  ads.setDataRate(3);
+  Serial.begin(28800);
+  mySerial.begin(9600);
   lcd.init();                      // initialize the lcd
- mySerial.begin(9600);
+ 
   // Print a message to the LCD.
   lcd.backlight();
   lcd.print("enter");
   lcd.createChar(0, customChar);
+
+
+  Serial.println("CLEARDATA"); // очистка листа excel
+  Serial.println("LABEL,Time,code,Vset,voltage,percent"); // заголовки столбцов
+
+
+
+
+  for(int i = 5; i<500; i++)
+  {
+    
+    
+    U_set = i*0.01;
+    PWM = (PWM_min+((U_set-U_min)*(PWM_max-PWM_min)/(U_max-U_min)));//вычисление шим значения исходя из установки
+    buf.senD = PWM;//ввод переменной для отправки
+    mySerial.write((byte*)&buf, sizeof(buf));//отправка
+    delay(2000);//пусть значения устаканятся немного
+    voltage = 0;
+  voltage += ads.toVoltage(ads.readADC_Differential_0_1());
+  percent = (abs(voltage - U_set))/U_set;
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print(U_set,3);
+    lcd.print("V");
+    lcd.print(" ");
+    lcd.print(PWM);
+    lcd.setCursor(0,1);
+    lcd.print(voltage,3);
+    lcd.print("Vr");
+    lcd.print(" ");
+    lcd.print(percent*100);
+    lcd.print("%");
+    Serial.print("DATA,TIME,");
+    Serial.print(PWM);
+    Serial.print(",");
+    Serial.print(U_set,4);
+    Serial.print(",");
+    Serial.print(voltage,4);
+    Serial.print(",");
+    Serial.print(percent,5);
+    Serial.println();
+  }
 }
 
 void loop() {
+ /*
   char keyk = keypad.getKey();
   if(keyk =='*')
   {
@@ -84,16 +133,14 @@ void loop() {
    lcd.print("PWM ");//шим значение
    lcd.print(PWM);
    buf.senD = PWM;//ввод переменной для отправки
-   mySerial.write((byte*)&buf, sizeof(buf));//отправка
+   Serial.write((byte*)&buf, sizeof(buf));//отправка
   tmr = millis();
   }
   if(millis()-tmr>=5000)//если прошло больше 5 сек после ввода, выключаем подсветку
   {
     lcd.noBacklight();
   }
-    lcd.setCursor(10,1);
-  lcd.print(ads.toVoltage(ads.readADC_Differential_0_1()),4);
-
+  */
 }
 
 
@@ -103,7 +150,6 @@ void loop() {
 //ввод
 float amogus(float amogus)
 {
-  
 uint32_t tmr1;
 byte cntr=0;
 char key;

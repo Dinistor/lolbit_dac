@@ -3,15 +3,9 @@
 //КАЛИБРОВОЧНОЕ МЕНЮ? ВВОД КАЛИБРОВОЧНЫХ ЗНАЧЕНИЙ?
 //хранение калибровочных значений в EEPROM. тут надо аккуратно, дабы не получилось бесконечного цикла записи.
 //для проверки, вместе с записью использовать мигание светодиодом на 13й ноге
-//DONE энергосбережение - отключение подсветки через noBacklight() через 5 сек после ввода
+
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
-#include <SoftwareSerial.h>
-#include "ADS1X15.h"
-
-SoftwareSerial mySerial(10, 11); // RX, TX
-
-
 
 byte customChar[] = {
   B00000,
@@ -37,41 +31,38 @@ byte colPins[cols] = {4, 2, 6};
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-ADS1115 ads(0x48);
 
 uint32_t tmr;
 //калибровочные переменные
-uint16_t PWM_max = 53443;
-uint16_t PWM_min = 5612;
-float U_max = 4.493;
-float U_min = 0.5007;
+uint32_t PWM_max = 15025817L;
+uint32_t PWM_min = 1609483L;
+float U_max = 8.9923;
+float U_min = 0.9995;
 //рабочие переменные
-uint16_t PWM = 0;
+uint32_t PWM = 0;
 float U_set = 0;
+
+
 
 struct Str
 {
-  uint16_t senD;
+  uint32_t senD;
 };
-Str buf;//структура для отправки
 
 void setup() {
-  ads.setGain(0);
-  ads.setDataRate(1);
   Serial.begin(9600);
-  lcd.init();                      // initialize the lcd
- mySerial.begin(9600);
-  // Print a message to the LCD.
+  lcd.init();
   lcd.backlight();
   lcd.print("enter");
   lcd.createChar(0, customChar);
+
 }
 
 void loop() {
   char keyk = keypad.getKey();
   if(keyk =='*')
   {
-    lcd.backlight();
+   lcd.backlight();
   //ввод, вычисление и отправка данных
    U_set = amogus(U_set);//ввод
    PWM = (PWM_min+((U_set-U_min)*(PWM_max-PWM_min)/(U_max-U_min)));//вычисление шим значения исходя из установки
@@ -83,17 +74,15 @@ void loop() {
    lcd.setCursor(0,1);
    lcd.print("PWM ");//шим значение
    lcd.print(PWM);
+   Str buf;//структура для отправки
    buf.senD = PWM;//ввод переменной для отправки
-   mySerial.write((byte*)&buf, sizeof(buf));//отправка
+   Serial.write((byte*)&buf, sizeof(buf));//отправка
   tmr = millis();
   }
   if(millis()-tmr>=5000)//если прошло больше 5 сек после ввода, выключаем подсветку
   {
     lcd.noBacklight();
   }
-    lcd.setCursor(10,1);
-  lcd.print(ads.toVoltage(ads.readADC_Differential_0_1()),4);
-
 }
 
 
@@ -103,7 +92,6 @@ void loop() {
 //ввод
 float amogus(float amogus)
 {
-  
 uint32_t tmr1;
 byte cntr=0;
 char key;
@@ -114,7 +102,8 @@ String str = "";
     lcd.print("enter VOLTAGE");
     while(1)
   {
-///////////////////// you spin me right round TODO переделать на массив чаров в цикле
+///////////////////// you spin me right round 
+//TODO переделать на массив чаров в цикле
     if (millis() - tmr1 >= 420) 
   {
     tmr1 = millis();
@@ -189,7 +178,7 @@ String str = "";
     key = keypad.getKey();
     if((key != NO_KEY))
     {
-    /*if(key == '.')
+    /*if(key == '.')//решетка - отмена ввода. не задействовано, если решетка ставит точку.
     {
       lcd.clear();
       return amogus;
@@ -206,20 +195,20 @@ String str = "";
       lcd.setCursor(9,0);
       str = str + key;
       lcd.print(str);
-      //lcd.setCursor(0,1);
+      //lcd.setCursor(0,1);//дебаг
       //lcd.print(str.length());
       }
 
      }
       
-     if((key == '*')or(str.length() >= 5))//нажат ввод (*), достигнут лимит строки
+     if((key == '*')or(str.length() >= 6))//нажат ввод (*), достигнут лимит строки
     {
       
       str.toCharArray(str1, 12);
       amogus = atof(str1);
       
       str = "";
-      if((amogus>9.9999)or(amogus<0.01))
+      if((amogus>9.99)or(amogus<0.1))
       {
       lcd.clear();
       lcd.setCursor(0,0);
