@@ -59,25 +59,38 @@ void setup() {
 }
 
 void loop() {
+
+
   
 
 
-  switch(mode)
+
+  
+  char keyk = keypad.getKey();
+  if(keyk =='*')
   {
-  case 0:
+   lcd.backlight();
+  //ввод, вычисление и отправка данных
+   U_set = amogus(U_set);//ввод
+   PWM = (PWM_min+((U_set-U_min)*(PWM_max-PWM_min)/(U_max-U_min)));//вычисление шим значения исходя из установки
+   //это предусматривает некоторое "начальное" значение смещения. его нельзя скомпенсировать. для текущей итерации это около 40мВ.
+   //ставить код ниже значения смещения нельзя - это приведет к уходу в минус, переполнению и выдаче максимальных значений 9+В
+   lcd.setCursor(0,0);
+   lcd.print("VOLTAGE ");//установка
+   lcd.print(U_set,4);
+   lcd.setCursor(0,1);
+   lcd.print("PWM ");//шим значение
+   lcd.print(PWM);
+   Str buf;//структура для отправки
+   buf.senD = PWM;//ввод переменной для отправки
+   Serial.write((byte*)&buf, sizeof(buf));//отправка
+  tmr = millis();
+  }
+  if(millis()-tmr>=5000)//если прошло больше 5 сек после ввода, выключаем подсветку
   {
-
+    lcd.noBacklight();
   }
-
-
-  }
-
-
 }
-
-
-
-
 
 
 
