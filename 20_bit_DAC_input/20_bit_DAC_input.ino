@@ -5,7 +5,12 @@
 //для проверки, вместе с записью использовать мигание светодиодом на 13й ноге
 
 #include <LiquidCrystal_I2C.h>
+#include <Keypad_I2C.h>
 #include <Keypad.h>
+#include <EncButton.h>
+#define I2CADDR 0x20
+
+EncButton<EB_TICK, 2> btn;    
 
 byte customChar[] = {
   B00000,
@@ -26,20 +31,23 @@ char keys[rows][cols] = {
   {'7','8','9'},
   {'*','0','.'} //"*" это ввод
 };
-byte rowPins[rows] = {3, 8, 7, 5};
-byte colPins[cols] = {4, 2, 6};
-Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
+byte rowPins[rows] = {3, 4, 5, 6};
+byte colPins[cols] = {0, 1, 2};
+Keypad_I2C keypad ( makeKeymap(keys), rowPins, colPins, rows, cols, I2CADDR, PCF8574 );
+
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-uint32_t tmr;
+int32_t tmr;
 //калибровочные переменные
-uint32_t PWM_max = 15025817L;
-uint32_t PWM_min = 1609483L;
-float U_max = 8.9923;
-float U_min = 0.9995;
+int32_t PWM_max = 15030459L;
+int32_t PWM_min = 1610774L;
+float U_max = 8.99937;
+float U_min = 0.999835;
+bool calibrating = 0;
+int calmode = 0;
 //рабочие переменные
-uint32_t PWM = 0;
+int32_t PWM = 0L;
 float U_set = 0;
 
 
@@ -53,23 +61,139 @@ void setup() {
   Serial.begin(9600);
   lcd.init();
   lcd.backlight();
-  lcd.print("enter");
+  lcd.setCursor(0,0);
+  lcd.print("* voltage set");
+  //lcd.setCursor(0,1);
+  //lcd.print("# calibration");
   lcd.createChar(0, customChar);
-
+  keypad.begin(makeKeymap(keys));
 }
 
 void loop() {
+  //btn.tick();
+  //первая версия калибровки. Нажатие * даёт ввод, нажатие # даёт режим калибровки
 
-
-  
-
-
-
-  
   char keyk = keypad.getKey();
+
   if(keyk =='*')
   {
-   lcd.backlight();
+  input_voltage();
+  if(millis()-tmr>=5000)//если прошло больше 5 сек после ввода, выключаем подсветку
+  {
+    lcd.noBacklight();
+  }
+  }
+
+
+
+
+
+/*
+  if(keyk == '.')
+  {
+    calibrating = 1;
+  }
+  while(calibrating = 1)
+  {
+    //btn.tick();
+    if(btn.click())
+    {
+      calmode ++;
+      if(calmode > 4)
+      calmode = 0;
+    }
+    switch(calmode)
+    {
+      case 0:
+      {
+      //шаг 1. Ввести значение минимального ШИМа. 
+      //* - ентер, # - "переввод"
+      if(keyk == '*')
+      {
+        lcd.clear();
+        break;
+        //вкинуть сюда запись в память
+      }
+      if(keyk == '.')
+      {
+      PWM_min = calPWMinput();
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Save PWM MIN?");
+      lcd.setCursor(0,1);
+      lcd.print(PWM_min);
+      }
+      keyk = keypad.getKey();
+      }
+      case 1:
+      {
+      //шаг 2. Ввести показания эталонного вольтметра на минимальном ШИМе.
+      if(keyk == '*')
+      {
+        lcd.clear();
+        break;
+        //вкинуть сюда запись в память
+      }
+      if(keyk == '.')
+      {
+      U_min = amogus(U_min);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Save Umin?");
+      lcd.setCursor(0,1);
+      lcd.print(U_min);
+      }
+      keyk = keypad.getKey();
+      }
+      case 2:
+      {
+        //шаг 1. Ввести значение максимального ШИМа. 
+      //* - ентер, # - "переввод"
+      if(keyk == '*')
+      {
+        lcd.clear();
+        break;
+        //вкинуть сюда запись в память
+      }
+      if(keyk == '.')
+      {
+      PWM_max = calPWMinput();
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Save MAX PWM?");
+      lcd.setCursor(0,1);
+      lcd.print(PWM_max);
+      }
+      keyk = keypad.getKey();
+      }
+      case 3:
+      {
+        //шаг 2. Ввести показания эталонного вольтметра на максимальном ШИМе.
+      if(keyk == '*')
+      {
+        lcd.clear();
+        break;
+        //вкинуть сюда запись в память
+      }
+      if(keyk == '.')
+      {
+      U_max = amogus(U_max);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Save Umax?");
+      lcd.setCursor(0,1);
+      lcd.print(U_max);
+      }
+      keyk = keypad.getKey();
+      }
+      }
+    }*/
+}
+
+
+void input_voltage()
+{
+  lcd.backlight();
   //ввод, вычисление и отправка данных
    U_set = amogus(U_set);//ввод
    PWM = (PWM_min+((U_set-U_min)*(PWM_max-PWM_min)/(U_max-U_min)));//вычисление шим значения исходя из установки
@@ -86,14 +210,7 @@ void loop() {
    Serial.write((byte*)&buf, sizeof(buf));//отправка
   tmr = millis();
   }
-  if(millis()-tmr>=5000)//если прошло больше 5 сек после ввода, выключаем подсветку
-  {
-    lcd.noBacklight();
-  }
-}
-
-
-
+  
 
 
 //ввод
@@ -181,7 +298,7 @@ String str = "";
     cntr++;
    
   }
-///////////////////end of spin
+///////////////////   i live in spain without a
     key = keypad.getKey();
     if((key != NO_KEY))
     {
@@ -198,8 +315,8 @@ String str = "";
       {
       lcd.clear();
       lcd.setCursor(0,0);
-      lcd.print("VOLTAGE ");
-      lcd.setCursor(9,0);
+      lcd.print("Voltage:");
+      lcd.setCursor(0,1);
       str = str + key;
       lcd.print(str);
       //lcd.setCursor(0,1);//дебаг
@@ -215,7 +332,7 @@ String str = "";
       amogus = atof(str1);
       
       str = "";
-      if((amogus>9.99)or(amogus<0.1))
+      if((amogus>9.999)or(amogus<0.01))
       {
       lcd.clear();
       lcd.setCursor(0,0);
@@ -233,5 +350,88 @@ String str = "";
     }
     }
     }
-      return amogus;
+    return amogus;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+uint32_t calPWMinput()
+{
+uint32_t PWM_val = 0ul;
+
+char key;
+char str1[12];
+String str = "";
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Enter LOW PWM");
+    while(1)
+  {
+    key = keypad.getKey();
+    if((key != NO_KEY))
+    {
+    if(key == '.')//решетка - отмена ввода
+    {
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Input cancelled");
+      lcd.setCursor(0,1);
+      lcd.print("RETRY input");
+      return 0;
+    }
+    if((key != '*')and((key != '.')))
+    {
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("PWM value: ");
+      lcd.setCursor(0,1);
+      str = str + key;
+      lcd.print(str);
+     }
+      
+     if((key == '*')or(str.length() >= 8))//нажат ввод (*), достигнут лимит строки
+    {
+      
+      str.toCharArray(str1, 12);
+      PWM_val = atof(str1);
+      
+      str = "";
+      if(PWM_val>16777215)
+      {
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("OVER RANGE");
+      lcd.setCursor(0,1);
+      lcd.print("RETRY INPUT");
+      delay(500);
+      return 0;
+      }
+      
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("set");
+      delay(500);
+      lcd.clear();
+      break;
+    }
+    }
+    }
+    return PWM_val;
+
+}
+
+
